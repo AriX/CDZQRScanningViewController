@@ -150,7 +150,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.previewLayer.connection.isVideoOrientationSupported) {
-                self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation([UIApplication sharedApplication].statusBarOrientation);
+                self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(self.interfaceOrientation);
             }
 
             [self.avSession startRunning];
@@ -181,7 +181,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     self.previewLayer.position = CGPointMake(CGRectGetMidX(layerRect), CGRectGetMidY(layerRect));
 
     if (self.previewLayer.connection.isVideoOrientationSupported) {
-        self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation([UIApplication sharedApplication].statusBarOrientation);
+        self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(self.interfaceOrientation);
     }
 }
 
