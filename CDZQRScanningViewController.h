@@ -5,10 +5,10 @@
 //  Copyright (c) 2013 Chris Dzombak. All rights reserved.
 //
 
-#import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
 
-typedef void (^CDZQRScanResultBlock)(NSString *scanResult);
+typedef void (^CDZQRScanResultBlock)(AVMetadataMachineReadableCodeObject *result);
 typedef void (^CDZQRScanErrorBlock)(NSError *error);
 typedef void (^CDZQRScanCancelBlock)();
 

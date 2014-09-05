@@ -228,17 +228,19 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 #pragma mark - AVCaptureMetadataOutputObjectsDelegate
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects fromConnection:(AVCaptureConnection *)connection {
-    NSString *result;
+    NSString *stringResult = nil;
+    AVMetadataMachineReadableCodeObject *result = nil;
 
     for (AVMetadataObject *metadata in metadataObjects) {
         if ([self.metadataObjectTypes containsObject:metadata.type]) {
-            result = [(AVMetadataMachineReadableCodeObject *)metadata stringValue];
+            result = (AVMetadataMachineReadableCodeObject *)metadata;
+            stringResult = [result stringValue];
             break;
         }
     }
 
-    if (result && ![self.lastCapturedString isEqualToString:result]) {
-        self.lastCapturedString = result;
+    if (stringResult && ![self.lastCapturedString isEqualToString:stringResult]) {
+        self.lastCapturedString = stringResult;
         [self.avSession stopRunning];
         if (self.resultBlock) self.resultBlock(result);
     }
