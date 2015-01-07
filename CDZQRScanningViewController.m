@@ -40,7 +40,6 @@ static AVCaptureVideoOrientation CDZVideoOrientationFromInterfaceOrientation(UII
 }
 
 static const float CDZQRScanningTorchLevel = 0.25;
-static const NSTimeInterval CDZQRScanningTorchActivationDelay = 0.25;
 
 NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontroller";
 
@@ -49,6 +48,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 @property (nonatomic, strong) AVCaptureSession *avSession;
 @property (nonatomic, strong) AVCaptureDevice *captureDevice;
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
+@property (nonatomic, strong) UIButton *torchButton;
 
 @property (nonatomic, copy) NSString *lastCapturedString;
 
@@ -60,9 +60,27 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 
 - (instancetype)initWithMetadataObjectTypes:(NSArray *)metadataObjectTypes {
     self = [super init];
-    if (!self) return nil;
+    if (!self)
+        return nil;
+    
     self.metadataObjectTypes = metadataObjectTypes;
     self.title = NSLocalizedString(@"Scan QR Code", nil);
+    
+    UIImage *torchIcon = [UIImage imageNamed:@"CameraFlash.png"];
+    
+    CGRect bounds = CGRectMake(0, 0, 18.0f, torchIcon.size.height);
+    UIGraphicsBeginImageContextWithOptions(bounds.size, NO, 0.0f);
+    [torchIcon drawAtPoint:CGPointMake(CGRectGetMidX(bounds) - torchIcon.size.width / 2.0f, CGRectGetMidY(bounds) - torchIcon.size.height / 2.0f)];
+    UIImage *buttonImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+
+    UIButton *torchButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [torchButton setImage:buttonImage forState:UIControlStateNormal];
+    [torchButton addTarget:self action:@selector(toggleTorch:) forControlEvents:UIControlEventTouchUpInside];
+    torchButton.frame = CGRectMake(0, 0, buttonImage.size.width, buttonImage.size.height);
+    _torchButton = torchButton;
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:torchButton];
+    
     return self;
 }
 
@@ -74,10 +92,6 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     [super viewDidLoad];
 
     self.view.backgroundColor = [UIColor blackColor];
-
-    UILongPressGestureRecognizer *torchGestureRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleTorchRecognizerTap:)];
-    torchGestureRecognizer.minimumPressDuration = CDZQRScanningTorchActivationDelay;
-    [self.view addGestureRecognizer:torchGestureRecognizer];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -161,6 +175,9 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
     self.previewLayer.frame = self.view.bounds;
     [self.view.layer addSublayer:self.previewLayer];
+    
+    UITapGestureRecognizer *gestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleFocusTap:)];
+    [self.view addGestureRecognizer:gestureRecognizer];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -189,23 +206,42 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 
 - (void)cancelItemSelected:(id)sender {
     [self.avSession stopRunning];
-    if (self.cancelBlock) self.cancelBlock();
+    if (self.cancelBlock)
+        self.cancelBlock();
 }
 
-- (void)handleTorchRecognizerTap:(UIGestureRecognizer *)sender {
-    switch(sender.state) {
-        case UIGestureRecognizerStateBegan:
-            [self turnTorchOn];
-            break;
-        case UIGestureRecognizerStateChanged:
-        case UIGestureRecognizerStatePossible:
-            // no-op
-            break;
-        case UIGestureRecognizerStateRecognized: // also UIGestureRecognizerStateEnded
-        case UIGestureRecognizerStateFailed:
-        case UIGestureRecognizerStateCancelled:
-            [self turnTorchOff];
-            break;
+- (void)toggleTorch:(id)sender {
+    if (self.captureDevice.torchActive) {
+        [self turnTorchOff];
+        self.torchButton.selected = NO;
+    } else {
+        [self turnTorchOn];
+        self.torchButton.selected = YES;
+    }
+}
+
+- (void)handleFocusTap:(UIGestureRecognizer *)gestureRecognizer {
+    CGPoint locationInView = [gestureRecognizer locationInView:self.view];
+    CGPoint locationInCaptureDevice = [self.previewLayer captureDevicePointOfInterestForPoint:locationInView];
+    
+    AVCaptureDevice *captureDevice = self.captureDevice;
+    NSError *error = nil;
+    
+    if ([captureDevice lockForConfiguration:&error]) {
+        if ([captureDevice isFocusPointOfInterestSupported] && [captureDevice isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+            [captureDevice setFocusMode:AVCaptureFocusModeAutoFocus];
+            [captureDevice setFocusPointOfInterest:locationInCaptureDevice];
+        }
+        
+        if ([captureDevice isExposurePointOfInterestSupported] && [captureDevice isExposureModeSupported:AVCaptureExposureModeAutoExpose]) {
+            [captureDevice setExposureMode:AVCaptureExposureModeAutoExpose];
+            [captureDevice setExposurePointOfInterest:locationInCaptureDevice];
+        }
+        
+        [captureDevice unlockForConfiguration];
+        
+    } else {
+        NSLog(@"Capture device configuration error: %@", error);
     }
 }
 
