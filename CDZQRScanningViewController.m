@@ -18,8 +18,11 @@
 #define CDZStrongSelf __typeof__(self)
 #endif
 
-static AVCaptureVideoOrientation CDZVideoOrientationFromInterfaceOrientation(UIInterfaceOrientation interfaceOrientation)
-{
+static UIInterfaceOrientation CDZCurrentInterfaceOrientation() {
+    return [[UIApplication performSelector:@selector(sharedApplication)] statusBarOrientation];
+}
+
+static AVCaptureVideoOrientation CDZVideoOrientationFromInterfaceOrientation(UIInterfaceOrientation interfaceOrientation) {
     switch (interfaceOrientation) {
 #ifdef __IPHONE_8_0
         case UIInterfaceOrientationUnknown:
@@ -164,7 +167,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.previewLayer.connection.isVideoOrientationSupported) {
-                self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(self.interfaceOrientation);
+                self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(CDZCurrentInterfaceOrientation());
             }
 
             [self.avSession startRunning];
@@ -198,7 +201,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     self.previewLayer.position = CGPointMake(CGRectGetMidX(layerRect), CGRectGetMidY(layerRect));
 
     if (self.previewLayer.connection.isVideoOrientationSupported) {
-        self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(self.interfaceOrientation);
+        self.previewLayer.connection.videoOrientation = CDZVideoOrientationFromInterfaceOrientation(CDZCurrentInterfaceOrientation());
     }
 }
 
