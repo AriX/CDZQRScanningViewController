@@ -27,11 +27,11 @@ typedef NS_ENUM(NSInteger, CDZQRScanningViewControllerErrorCode) {
 /**
  *  Returns a scanning view controller configured to accept the given metadata object types.
  *
- *  @param metadataObjectTypes An array of `AVMetadataMachineReadableCodeObject`s
+ *  @param metadataObjectTypes An array of `AVMetadataMachineReadableCodeObject` types
  *
  *  @return Scanning view controller configured to accept the given metadata object types
  */
-- (instancetype)initWithMetadataObjectTypes:(NSArray *)metadataObjectTypes;
+- (instancetype)initWithMetadataObjectTypes:(NSArray<NSString *> *)metadataObjectTypes;
 
 /**
  *  Returns a scanning view controller configured to accept QR codes
@@ -48,8 +48,8 @@ typedef NS_ENUM(NSInteger, CDZQRScanningViewControllerErrorCode) {
 @property (nonatomic, copy) CDZQRScanCancelBlock cancelBlock;
 
 /**
- *  An array of `AVMetadataMachineReadableCodeObject`s
+ *  An array of `AVMetadataMachineReadableCodeObject` types
  */
-@property (nonatomic, strong, readonly) NSArray *metadataObjectTypes;
+@property (nonatomic, strong, readonly) NSArray<NSString *> *metadataObjectTypes;
 
 @end

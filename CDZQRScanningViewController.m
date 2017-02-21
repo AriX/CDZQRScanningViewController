@@ -52,6 +52,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
 @property (nonatomic, strong) AVCaptureDevice *captureDevice;
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 @property (nonatomic, strong) UIButton *torchButton;
+@property (nonatomic, weak) UILabel *cameraUnavailableLabel;
 
 @property (nonatomic, copy) NSString *lastCapturedString;
 
@@ -84,11 +85,46 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     _torchButton = torchButton;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:torchButton];
     
+    UILabel *unavailableLabel = [[UILabel alloc] init];
+    unavailableLabel.hidden = YES;
+    unavailableLabel.textAlignment = NSTextAlignmentCenter;
+    unavailableLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    unavailableLabel.textColor = [UIColor whiteColor];
+    unavailableLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    _cameraUnavailableLabel = unavailableLabel;
+    [self.view addSubview:unavailableLabel];
+    
+    NSDictionary *views = NSDictionaryOfVariableBindings(unavailableLabel);
+    NSMutableArray<NSLayoutConstraint *> *constraints = [NSMutableArray new];
+    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[unavailableLabel]|" options:0 metrics:nil views:views]];
+    [constraints addObjectsFromArray:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[unavailableLabel]|" options:0 metrics:nil views:views]];
+    [NSLayoutConstraint activateConstraints:constraints];
+    
     return self;
 }
 
+- (void)dealloc {
+    [self setAvSession:nil];
+}
+
+- (void)setAvSession:(AVCaptureSession *)avSession {
+    if (_avSession) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:AVCaptureSessionRuntimeErrorNotification object:_avSession];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:AVCaptureSessionWasInterruptedNotification object:_avSession];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:AVCaptureSessionInterruptionEndedNotification object:_avSession];
+    }
+    
+    _avSession = avSession;
+    
+    if (_avSession) {
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(sessionRuntimeError:) name:AVCaptureSessionRuntimeErrorNotification object:_avSession];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(sessionWasInterrupted:) name:AVCaptureSessionWasInterruptedNotification object:_avSession];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(sessionInterruptionEnded:) name:AVCaptureSessionInterruptionEndedNotification object:_avSession];
+    }
+}
+
 - (instancetype)init {
-    return [self initWithMetadataObjectTypes:@[ AVMetadataObjectTypeQRCode ]];
+    return [self initWithMetadataObjectTypes:@[AVMetadataObjectTypeQRCode]];
 }
 
 - (void)viewDidLoad {
@@ -177,7 +213,7 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
     self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession:self.avSession];
     self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
     self.previewLayer.frame = self.view.bounds;
-    [self.view.layer addSublayer:self.previewLayer];
+    [self.view.layer insertSublayer:self.previewLayer atIndex:0];
     
     UITapGestureRecognizer *gestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleFocusTap:)];
     [self.view addGestureRecognizer:gestureRecognizer];
@@ -282,6 +318,38 @@ NSString * const CDZQRScanningErrorDomain = @"com.cdzombak.qrscanningviewcontrol
         self.lastCapturedString = stringResult;
         [self.avSession stopRunning];
         if (self.resultBlock) self.resultBlock(result);
+    }
+}
+
+#pragma mark - Session notifications
+
+- (void)sessionRuntimeError:(NSNotification *)notification {
+    NSError *error = notification.userInfo[AVCaptureSessionErrorKey];
+    
+    if (self.errorBlock)
+        self.errorBlock(error);
+}
+
+- (void)sessionWasInterrupted:(NSNotification *)notification {
+    AVCaptureSessionInterruptionReason reason = [notification.userInfo[AVCaptureSessionInterruptionReasonKey] integerValue];
+    
+    self.cameraUnavailableLabel.text = (reason == AVCaptureSessionInterruptionReasonVideoDeviceNotAvailableWithMultipleForegroundApps ? @"Camera Unavailable in Multitasking" : @"Camera Unavailable");
+    self.cameraUnavailableLabel.alpha = 0.0;
+    self.cameraUnavailableLabel.hidden = NO;
+    [UIView animateWithDuration:0.25 animations:^{
+        self.cameraUnavailableLabel.alpha = 1.0;
+        self.previewLayer.opacity = 0.5;
+    }];
+}
+
+- (void)sessionInterruptionEnded:(NSNotification *)notification {
+    if (!self.cameraUnavailableLabel.hidden) {
+        [UIView animateWithDuration:0.25 animations:^{
+            self.cameraUnavailableLabel.alpha = 0.0;
+            self.previewLayer.opacity = 1.0;
+        } completion:^(BOOL finished) {
+            self.cameraUnavailableLabel.hidden = YES;
+        }];
     }
 }
 
